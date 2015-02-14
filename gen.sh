@@ -2,9 +2,9 @@
 
 # Download the latest dump from the Wikivoyage server and transform it to an HTML guide.
 
-wget http://dumps.wikimedia.org/enwikivoyage/ -O /tmp/dump-dates.txt
-LAST_DUMP_LINE=`grep Directory /tmp/dump-dates.txt | grep -v latest | tail -n 1`
-LAST_DUMP_DATE=`echo $LAST_DUMP_LINE | sed -e "s/<\/a>.*//g" -e "s/.*>//g"`
+wget http://dumps.wikimedia.org/enwikivoyage/ -O ./dump-dates.txt
+LAST_DUMP_LINE=`cat ./dump-dates.txt | grep -v latest | grep href | tail -n 1`
+LAST_DUMP_DATE=`echo $LAST_DUMP_LINE | sed -e "s/\/<\/a>.*//g" -e "s/.*>//g"`
 echo "Last dump date: $LAST_DUMP_DATE"
 
 # Check if already downloaded
