@@ -44,7 +44,7 @@ class Article(object):
         self.articleName = articleName
 
     # Parse the wikicode and write this article as an json object.
-    def saveHTML(self):
+    def saveJson(self):
         print articleName
         outputFile = open('%s/%s' % (outputDirectory,hashName(self.articleName)), 'w')
         outputFile.write('{ "title":"%s"' % self.articleName)
@@ -63,6 +63,9 @@ class Article(object):
             outputFile.write(', "isPartOf":[')
             buffer = "{}"
             for cursor in breadcrumb:
+                # print 'buffer: ' + buffer
+                # print 'hash:' + hashName(cursor)
+                # print 'cur: ' + cursor
                 buffer = '{ "id":"' + hashName(cursor) + '", "name":"' + cursor + '" },' + buffer
             outputFile.write(buffer)
             outputFile.write('], ')
@@ -76,7 +79,7 @@ class Article(object):
             # Read one line from the article.
             if len(restOfWikicode)==0: break
             split = restOfWikicode.partition('\n')
-            line = split[0]
+            line = '" + split[0] + '"'
             restOfWikicode = split[2]
 
             # Image and interwiki links (ignored).
@@ -113,29 +116,34 @@ class Article(object):
                if lastLineWasBlank:
                    continue
                else:
-                   line = '<p>'
+                   #end of section
+                   line = '],'
                    lastLineWasBlank = True
             else:
                lastLineWasBlank = False
 
             # Header.
+            #h5
             if re.compile('^\s*=====.*=====\s*$').match(line):
-                line = re.compile('^(\s*=====\s*)').sub('<h5>',line)
-                line = re.compile('(\s*=====\s*)$').sub('</h5>',line)
+                line = re.compile('^(\s*=====\s*)').sub('"',line)
+                line = re.compile('(\s*=====\s*)$').sub('":[',line)
+            #h4
             if re.compile('^\s*====.*====\s*$').match(line):
-                line = re.compile('^(\s*====\s*)').sub('<h4>',line)
-                line = re.compile('(\s*====\s*)$').sub('</h4>',line)
+                line = re.compile('^(\s*====\s*)').sub('"',line)
+                line = re.compile('(\s*====\s*)$').sub('":[',line)
+            #h3
             if re.compile('^\s*===.*===\s*$').match(line):
-                line = re.compile('^(\s*===\s*)').sub('<h3>',line)
-                line = re.compile('(\s*===\s*)$').sub('</h3>',line)
+                line = re.compile('^(\s*===\s*)').sub('"',line)
+                line = re.compile('(\s*===\s*)$').sub('":[',line)
+            #h2
             if re.compile('^\s*==.*==\s*$').match(line):
-                line = re.compile('^(\s*==\s*)').sub('<h2>',line)
-                line = re.compile('(\s*==\s*)$').sub('</h2>',line)
+                line = re.compile('^(\s*==\s*)').sub('"',line)
+                line = re.compile('(\s*==\s*)$').sub('":[',line)
 
             # List item.
             if re.compile('^\*').match(line):
-                line = re.compile('^(\*)').sub('<li>',line)
-                line = line+'</li>'
+                line = re.compile('^(\*)').sub('"* ',line)
+                line = line+'",'
 
             # Wikilinks.
             if re.compile('.*\]\].*').match(line):
@@ -166,10 +174,10 @@ class Article(object):
                     
                     if label: # Ignore if label is empty
                         if target in articleNames:
-                            line += '<a href="../' + hashName(target) + '">' + label + '</a>'
+                            line += '{"id":"' + hashName(target) + '", "label":"' + label + '"},'
                         else:
                             # Don't create a link, because it would be a broken link.
-                            line += '<font color="red">' + label + '</font>'
+                            line += '"' + label + '",'
 
             # External links.
             # TODO
@@ -196,7 +204,7 @@ class Article(object):
                         target = split[0].strip()
                         label = split[2].strip()
                     if extlink:
-                        line += '<a href="' + target + '">[' + label + '↗]</a>'
+                        line += '{"id":"' + target + '", "label":"' + label + '"},'
 
             # Old-style listing.
             if re.compile('^<li>\s*(<|&lt;)(see|do|buy|eat|drink|sleep).*(<|&gt;)/.*').match(line):
@@ -215,7 +223,8 @@ class Article(object):
                 coords = re.search('.*lat=([^ ]*) \\| long=([^ ]*).*', line, re.I | re.U)
                 lat = coords.group(1)
                 lon = coords.group(2)
-                line = line + ' <a href="geo:' + lat + ',' + lon + '">(map)</a>'
+                line = line + '{ "geo":[' + lat + ',' + lon + ']}'
+                
             # TODO: Rest of new listing. Difficult because multi-line
 
             # Bold: remove.
@@ -226,31 +235,17 @@ class Article(object):
 
             if minimization:
                 line = re.compile('\s+').sub(' ', line)
-            body += line
-            if not minimization:
-                body += '\n'
+            body += line + ', \n'
+            # if not minimization:
+            #     body += '\n'
 
 
-        outputFile.write('"' + body + '"')
+        outputFile.write(body)
         outputFile.write('}')
 # End of Article class
 
 # Main
-print "### Generate index"
-articles = ["Africa", "Antarctica", "Asia", "South Asia", "Southeast Asia", "Caribbean", "Central America", "Europe", "Middle East", "North America", "South America", "Other destinations", "Travel topics"]
-index = open("index.html", "w")
-index.write("<html> <head><title>OxygenGuide</title></head> <body> <ul>")
-for article in articles:
-    index.write('<li><a href="articles/')
-    index.write(hashName(article))
-    index.write('">')
-    index.write(article)
-    index.write('</a></li>')
-index.write('</ul>')
-index.write('<p>This content is based on work by all volunteers of <a href="http://wikivoyage.org">Wikivoyage</a> and <a href="http://wikitravel.org">Wikitravel</a>.')
-index.write('Text is available under <a href="http://creativecommons.org/licenses/by-sa/1.0/">Creative Commons Attribution-ShareAlike 1.0</a>.')
-index.write('Comments welcome on <a href="https://en.wikivoyage.org/w/index.php?title=User_talk:Nicolas1981&action=edit&section=new">my user page</a>.</p>')
-index.write('</body> </html>')
+
 
 # Create the directory where HTML files will be written.
 if not os.path.isdir(outputDirectory):
@@ -326,7 +321,7 @@ for line in open(databaseDump):
             if not is_redirect(wikicode):
                 wikicode = re.compile('      <sha1>.*', re.DOTALL).sub('', wikicode)
                 article = Article(wikicode, articleName);
-                article.saveHTML();
+                article.saveJson();
     if line.startswith("  <page>"):
         flag=1
         page=""
